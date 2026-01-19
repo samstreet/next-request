@@ -16,12 +16,12 @@ Laravel-inspired Form Request validation for Next.js API routes.
 ## Installation
 
 ```bash
-npm install next-request
+npm install next-form-request
 ```
 
 With Zod (recommended):
 ```bash
-npm install next-request zod
+npm install next-form-request zod
 ```
 
 ## Quick Start

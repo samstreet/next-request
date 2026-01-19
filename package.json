@@ -1,5 +1,5 @@
 {
-  "name": "next-request",
+  "name": "next-form-request",
   "version": "0.1.0",
   "description": "Laravel-inspired Form Request validation for Next.js API routes",
   "main": "dist/index.js",
@@ -38,7 +38,7 @@
     "api",
     "typescript"
   ],
-  "author": "",
+  "author": "Sam Street <samstreet.dev@gmail.com> (https://github.com/samstreet/next-request)",
   "license": "MIT",
   "peerDependencies": {
     "next": ">=13.0.0"
