@@ -1,6 +1,6 @@
 {
   "name": "next-form-request",
-  "version": "0.1.1",
+  "version": "1.0.0",
   "description": "Laravel-inspired Form Request validation for Next.js API routes",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
