@@ -7,6 +7,9 @@ import type {
 } from './types';
 import { isAppRouterRequest } from './types';
 import { ValidationError, AuthorizationError } from './errors';
+import type { RateLimitConfig, RateLimitResult } from '../utils/rateLimit';
+import { checkRateLimit, RateLimitError } from '../utils/rateLimit';
+import { coerceFormData, type CoercionOptions } from '../utils/coerce';
 
 /**
  * Abstract base class for form request validation.
@@ -95,6 +98,44 @@ export abstract class FormRequest<TValidated = unknown> {
    */
   authorize(): boolean | Promise<boolean> {
     return true;
+  }
+
+  /**
+   * Define rate limiting for this request.
+   * Override this method to add rate limiting.
+   *
+   * @example
+   * ```typescript
+   * rateLimit() {
+   *   return {
+   *     maxAttempts: 5,
+   *     windowMs: 60000, // 1 minute
+   *     key: (req) => this.input('email') || 'anonymous',
+   *   };
+   * }
+   * ```
+   */
+  rateLimit(): RateLimitConfig | null {
+    return null;
+  }
+
+  /**
+   * Define coercion options for form data.
+   * Override this method to enable automatic type coercion.
+   *
+   * @example
+   * ```typescript
+   * coercion() {
+   *   return {
+   *     booleans: true,  // "true" → true
+   *     numbers: true,   // "123" → 123
+   *     dates: true,     // "2024-01-01" → Date
+   *   };
+   * }
+   * ```
+   */
+  coercion(): CoercionOptions | null {
+    return null;
   }
 
   /**
@@ -269,15 +310,31 @@ export abstract class FormRequest<TValidated = unknown> {
    * Run validation and return the validated data.
    * Throws ValidationError if validation fails.
    * Throws AuthorizationError if authorization fails.
+   * Throws RateLimitError if rate limit is exceeded.
    *
    * @returns The validated data with full type inference
    */
   async validate(): Promise<TValidated> {
-    // Check authorization first
+    // Check rate limit first
+    const rateLimitConfig = this.rateLimit();
+    if (rateLimitConfig) {
+      const result = await checkRateLimit(this.request, rateLimitConfig);
+      if (!result.allowed) {
+        throw new RateLimitError(result, rateLimitConfig.message);
+      }
+    }
+
+    // Check authorization
     const isAuthorized = await this.authorize();
     if (!isAuthorized) {
       await this.onAuthorizationFailed();
       throw new AuthorizationError();
+    }
+
+    // Apply coercion if configured
+    const coercionOptions = this.coercion();
+    if (coercionOptions) {
+      this.body = coerceFormData(this.body, coercionOptions);
     }
 
     // Run beforeValidation hook

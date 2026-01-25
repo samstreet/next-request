@@ -3,7 +3,17 @@ import { FormRequest } from '../core/FormRequest';
 import { ValidationError, AuthorizationError } from '../core/errors';
 
 /**
- * Type for FormRequest constructor
+ * Extract the validated type from a FormRequest constructor
+ * This works by:
+ * 1. Getting the instance type from the constructor: InstanceType<T>
+ * 2. Checking if that instance extends FormRequest<infer V>
+ * 3. Extracting V which is the TValidated generic parameter
+ */
+type InferValidatedType<T extends new () => any> =
+  InstanceType<T> extends FormRequest<infer V> ? V : never;
+
+/**
+ * Type for FormRequest constructor (legacy - kept for backward compatibility)
  */
 type FormRequestClass<TValidated> = {
   new (): FormRequest<TValidated>;
@@ -59,9 +69,11 @@ interface AppRouterContext {
  * });
  * ```
  */
-export function withRequest<TValidated>(
-  RequestClass: FormRequestClass<TValidated>,
-  handler: AppRouterHandler<TValidated>
+export function withRequest<T extends new () => FormRequest<any>>(
+  RequestClass: T & {
+    fromAppRouter(request: Request, params?: Record<string, string>): Promise<InstanceType<T>>;
+  },
+  handler: AppRouterHandler<InferValidatedType<T>>
 ): (request: Request, context?: AppRouterContext) => Promise<Response> {
   return async (request: Request, context?: AppRouterContext) => {
     // Resolve params (may be a Promise in Next.js 15+)
@@ -98,9 +110,11 @@ export function withRequest<TValidated>(
  * });
  * ```
  */
-export function withApiRequest<TValidated>(
-  RequestClass: FormRequestClass<TValidated>,
-  handler: PagesRouterHandler<TValidated>
+export function withApiRequest<T extends new () => FormRequest<any>>(
+  RequestClass: T & {
+    fromPagesRouter(request: NextApiRequest, params?: Record<string, string>): Promise<InstanceType<T>>;
+  },
+  handler: PagesRouterHandler<InferValidatedType<T>>
 ): (req: NextApiRequest, res: NextApiResponse) => Promise<void> {
   return async (req: NextApiRequest, res: NextApiResponse) => {
     const formRequest = await RequestClass.fromPagesRouter(req);
@@ -132,13 +146,17 @@ export function createAppRouterWrapper(options: {
   onValidationError?: (error: ValidationError) => Response;
   onAuthorizationError?: (error: AuthorizationError) => Response;
   onError?: (error: unknown) => Response;
-}): <TValidated>(
-  RequestClass: FormRequestClass<TValidated>,
-  handler: AppRouterHandler<TValidated>
+}): <T extends new () => FormRequest<any>>(
+  RequestClass: T & {
+    fromAppRouter(request: Request, params?: Record<string, string>): Promise<InstanceType<T>>;
+  },
+  handler: AppRouterHandler<InferValidatedType<T>>
 ) => (request: Request, context?: AppRouterContext) => Promise<Response> {
-  return <TValidated>(
-    RequestClass: FormRequestClass<TValidated>,
-    handler: AppRouterHandler<TValidated>
+  return <T extends new () => FormRequest<any>>(
+    RequestClass: T & {
+      fromAppRouter(request: Request, params?: Record<string, string>): Promise<InstanceType<T>>;
+    },
+    handler: AppRouterHandler<InferValidatedType<T>>
   ) => {
     return async (request: Request, context?: AppRouterContext) => {
       try {
@@ -200,13 +218,17 @@ export function createPagesRouterWrapper(options: {
     req: NextApiRequest,
     res: NextApiResponse
   ) => void | Promise<void>;
-}): <TValidated>(
-  RequestClass: FormRequestClass<TValidated>,
-  handler: PagesRouterHandler<TValidated>
+}): <T extends new () => FormRequest<any>>(
+  RequestClass: T & {
+    fromPagesRouter(request: NextApiRequest, params?: Record<string, string>): Promise<InstanceType<T>>;
+  },
+  handler: PagesRouterHandler<InferValidatedType<T>>
 ) => (req: NextApiRequest, res: NextApiResponse) => Promise<void> {
-  return <TValidated>(
-    RequestClass: FormRequestClass<TValidated>,
-    handler: PagesRouterHandler<TValidated>
+  return <T extends new () => FormRequest<any>>(
+    RequestClass: T & {
+      fromPagesRouter(request: NextApiRequest, params?: Record<string, string>): Promise<InstanceType<T>>;
+    },
+    handler: PagesRouterHandler<InferValidatedType<T>>
   ) => {
     return async (req: NextApiRequest, res: NextApiResponse) => {
       try {
