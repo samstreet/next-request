@@ -19,7 +19,10 @@ interface ValibotSchema<TOutput = unknown> {
 }
 
 /**
- * Validator adapter for Valibot schemas
+ * Validator adapter for Valibot schemas.
+ *
+ * Since valibot is an optional peer dependency, you must pass the safeParse function
+ * from your valibot installation.
  *
  * @example
  * ```typescript
@@ -33,27 +36,19 @@ interface ValibotSchema<TOutput = unknown> {
  *
  * class MyRequest extends FormRequest<v.InferOutput<typeof schema>> {
  *   rules() {
- *     return new ValibotAdapter(schema);
+ *     return new ValibotAdapter(schema, v.safeParse);
  *   }
  * }
  * ```
  */
 export class ValibotAdapter<T> implements ValidatorAdapter<T> {
-  private safeParse: (schema: ValibotSchema<T>, data: unknown) => SafeParseResult<T>;
+  private safeParseFunc: (schema: ValibotSchema<T>, data: unknown) => SafeParseResult<T>;
 
   constructor(
     private schema: ValibotSchema<T>,
-    safeParseFunc?: (schema: ValibotSchema<T>, data: unknown) => SafeParseResult<T>
+    safeParse: (schema: ValibotSchema<T>, data: unknown) => SafeParseResult<T>
   ) {
-    // Allow injecting safeParse for flexibility with different Valibot versions
-    this.safeParse = safeParseFunc ?? this.defaultSafeParse.bind(this);
-  }
-
-  private defaultSafeParse(schema: ValibotSchema<T>, data: unknown): SafeParseResult<T> {
-    // Dynamic import to avoid requiring valibot at module load time
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const valibot = require('valibot');
-    return valibot.safeParse(schema, data);
+    this.safeParseFunc = safeParse;
   }
 
   async validate(data: unknown, config?: ValidationConfig): Promise<ValidationResult<T>> {
@@ -61,7 +56,7 @@ export class ValibotAdapter<T> implements ValidatorAdapter<T> {
   }
 
   validateSync(data: unknown, config?: ValidationConfig): ValidationResult<T> {
-    const result = this.safeParse(this.schema, data);
+    const result = this.safeParseFunc(this.schema, data);
 
     if (result.success) {
       return {
